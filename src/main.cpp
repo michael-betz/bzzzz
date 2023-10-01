@@ -1,11 +1,15 @@
 #include<Arduino.h>
 
-#define MAX_PWR 0xF0  // need dead-zone near TOP to avoid glitches
+#define TOP 0xFF
+// dead-zone near TOP to avoid glitches
+// 16 bit access: 0x18
+// 8 bit access: 0xF
+#define MAX_PWR (TOP - 0xF)
 
-#define PIN_PWM_A 6  // OC0A
-#define PIN_PWM_B 5  // OC0B
-// #define PIN_PWM_B 9  // OC1A
-// #define PIN_PWM_B 10  // OC1B
+// #define PIN_PWM_A 6  // OC0A
+// #define PIN_PWM_B 5  // OC0B
+#define PIN_PWM_A 9  // OC1A
+#define PIN_PWM_B 10  // OC1B
 #define PIN_AD 8  // Arc detector
 
 void set_phase(uint8_t v)
@@ -13,8 +17,8 @@ void set_phase(uint8_t v)
 	if (v > MAX_PWR)
 		v = MAX_PWR;
 	cli();
-	while(TCNT0 <= MAX_PWR) {}
-	OCR0B = v;
+	while(TCNT1L <= MAX_PWR) {}
+	OCR1BL = v;
 	sei();
 }
 
@@ -25,10 +29,11 @@ void setup()
 	pinMode(PIN_AD, INPUT);
 
 	// Timer 0: toggle at fixed frequency and phase
-	OCR0A = 0;
-	OCR0B = 0;
-	TCCR0A = _BV(COM0B0) | _BV(COM0A0);  // TOP = 0xFF
-	TCCR0B = _BV(CS00);  // only CS00 = no prescaler
+	OCR1A = 0;
+	OCR1B = 0;
+	ICR1 = TOP;
+	TCCR1A = _BV(COM1B0) | _BV(COM1A0);
+	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS00);  // only CS00 = no prescaler
 
 	Serial.begin(115200);
 	Serial.print("Yo! This is Bzzzz2!\n");
@@ -50,5 +55,5 @@ void loop()
 	}
 	set_phase(val);
 
-	Serial.println(OCR0B);
+	Serial.println(OCR1B);
 }
