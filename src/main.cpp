@@ -1,4 +1,6 @@
-#include<Arduino.h>
+#include "simplex.h"
+#include <Arduino.h>
+#include <stdint.h>
 
 #define TOP 0xFF
 
@@ -9,20 +11,20 @@
 // #define PIN_PWM_B 5  // OC0B
 
 // PCB with botch wires
-#define PIN_PWM_A 9  // OC1A
+#define PIN_PWM_A 9   // OC1A
 #define PIN_PWM_B 10  // OC1B
-#define PIN_AD 8  // Arc detector
+#define PIN_AD 8      // Arc detector
 
 static volatile uint8_t target_base;
 static volatile uint8_t fraction;
 
 void set_phase(uint16_t val) {
-	if (val > (TOP << N_DITHER_BITS))
-		val = TOP << N_DITHER_BITS;
-	cli();
+    if (val > (TOP << N_DITHER_BITS))
+        val = TOP << N_DITHER_BITS;
+    cli();
     target_base = val >> N_DITHER_BITS;
     fraction = val & ((1 << N_DITHER_BITS) - 1);
-	sei();
+    sei();
 }
 
 // This interrupt fires exactly when the OCR1B pin toggles
@@ -57,44 +59,86 @@ ISR(TIMER1_COMPB_vect) {
     OCR1B = dithered_phase;
 }
 
-void setup()
-{
-	pinMode(PIN_PWM_A, OUTPUT);
-	pinMode(PIN_PWM_B, OUTPUT);
-	pinMode(PIN_AD, INPUT);
+void setup() {
+    pinMode(PIN_PWM_A, OUTPUT);
+    pinMode(PIN_PWM_B, OUTPUT);
+    pinMode(PIN_AD, INPUT);
 
-	// Timer 0: toggle at fixed frequency and phase
-	OCR1A = 0;
-	OCR1B = 0;
-	ICR1 = TOP;
-	TCCR1A = _BV(COM1B0) | _BV(COM1A0);  // toggle pins on compare match
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS00);  // no prescaler, ICR1 determines TOP value (frequency)
-	// Enable the Timer1 Compare Match B Interrupt
-	TIMSK1 |= _BV(OCIE1B);
+    // Timer 0: toggle at fixed frequency and phase
+    OCR1A = 0;
+    OCR1B = 0;
+    ICR1 = TOP;
+    TCCR1A = _BV(COM1B0) | _BV(COM1A0);  // toggle pins on compare match
+    TCCR1B =
+        _BV(WGM13) | _BV(WGM12) | _BV(CS00);  // no prescaler, ICR1 determines TOP value (frequency)
+    // Enable the Timer1 Compare Match B Interrupt
+    TIMSK1 |= _BV(OCIE1B);
 
-	set_phase(0);
+    set_phase(0);
 
-	Serial.begin(115200);
-	Serial.print("Yo! This is Bzzzz2!\n");
+    Serial.begin(115200);
+    Serial.print("Yo! This is Bzzzz2!\n");
 }
 
-void loop()
-{
-	static uint16_t val = 0;
-	int c = Serial.read();
-	if (c == -1) {
-		return;
-	}
-	if (c == '=' && val < (TOP << N_DITHER_BITS)) {
-		val++;
-	} else if (c == '-' && val > 0) {
-		val--;
-	}
-	set_phase(val);
+static int16_t get_simplex_val() {
+    static uint32_t frame = 0;
+    int16_t val = snoise_1D(frame << 2) >> 7;
+    val -= 100;
 
-	Serial.print(target_base);
-	Serial.print("   ");
-	Serial.print(fraction);
-	Serial.print("   ");
-	Serial.println(OCR1B);
+    if (val < (10 << N_DITHER_BITS))
+        val = (10 << N_DITHER_BITS);
+
+    if (val > (100 << N_DITHER_BITS))
+        val = (100 << N_DITHER_BITS);
+
+    frame++;
+    return val;
+}
+
+enum { WAITING, IGNITED, STAY_HERE };
+
+void loop() {
+    static int16_t val = 0;
+    static uint32_t frame = 0;
+    static uint8_t state = 0;
+    static uint16_t countdown = 0;
+
+    switch (state) {
+    case WAITING:
+        val = get_simplex_val();
+        if (val > (76 << N_DITHER_BITS))
+            state = IGNITED;
+        break;
+
+    case IGNITED:
+        val = get_simplex_val();
+        if (val <= (47 << N_DITHER_BITS)) {
+            state = STAY_HERE;
+            countdown = 500;
+        }
+        break;
+
+    case STAY_HERE:
+        if (countdown > 0)
+            countdown--;
+        else
+            state = WAITING;
+        break;
+
+    default:
+        state = WAITING;
+    }
+
+    set_phase(val);
+
+    Serial.print(state);
+    Serial.print("   ");
+    Serial.print(target_base);
+    Serial.print("   ");
+    Serial.print(fraction);
+    Serial.print("   ");
+    Serial.println(OCR1B);
+    frame++;
+
+    delay(50);
 }
