@@ -32,8 +32,8 @@ void setup()
 	OCR1A = 0;
 	OCR1B = 0;
 	ICR1 = TOP;
-	TCCR1A = _BV(COM1B0) | _BV(COM1A0);
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS00);  // only CS00 = no prescaler
+	TCCR1A = _BV(COM1B0) | _BV(COM1A0);  // Toggle pins on compare match (to keep 50 % duty)
+	TCCR1B = _BV(WGM13) | _BV(WGM12);  // CTC mode, MAX = ICR1, no prescaler
 
 	Serial.begin(115200);
 	Serial.print("Yo! This is Bzzzz2!\n");
