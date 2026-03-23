@@ -82,8 +82,13 @@ void setup() {
 
 static int16_t get_simplex_val() {
     static uint32_t frame = 0;
-    int16_t val = snoise_1D(frame << 2) >> 7;
-    val -= 100;
+
+    // 2 octaves
+    int16_t val = snoise_1D(frame << 1) >> 7;
+    val += snoise_1D(frame << 3) >> 8;
+
+    // Offset a bit
+    val -= 50 << N_DITHER_BITS;
 
     if (val < (10 << N_DITHER_BITS))
         val = (10 << N_DITHER_BITS);
