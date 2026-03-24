@@ -4,7 +4,7 @@
 
 #define TOP 0xFF
 
-#define N_DITHER_BITS 2
+#define N_DITHER_BITS 4
 
 // Original PCB (maybe?)
 // #define PIN_PWM_A 6  // OC0A
@@ -84,17 +84,17 @@ static int16_t get_simplex_val() {
     static uint32_t frame = 0;
 
     // 2 octaves
-    int16_t val = snoise_1D(frame << 1) >> 7;
-    val += snoise_1D(frame << 3) >> 8;
+    int16_t val = snoise_1D(frame << 1) >> 5;
+    val += snoise_1D(frame << 3) >> 6;
 
     // Offset a bit
-    val -= 50 << N_DITHER_BITS;
+    val -= 85 << N_DITHER_BITS;
 
-    if (val < (10 << N_DITHER_BITS))
-        val = (10 << N_DITHER_BITS);
+    if (val < 0)
+        val = 0;
 
-    if (val > (100 << N_DITHER_BITS))
-        val = (100 << N_DITHER_BITS);
+    if (val > (120 << N_DITHER_BITS))
+        val = (120 << N_DITHER_BITS);
 
     frame++;
     return val;
@@ -111,8 +111,8 @@ void loop() {
     switch (state) {
     case WAITING:
         val = get_simplex_val();
-        if (val > (76 << N_DITHER_BITS))
-            state = IGNITED;
+        // if (val > (76 << N_DITHER_BITS))
+        //     state = IGNITED;
         break;
 
     case IGNITED:
