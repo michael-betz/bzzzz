@@ -88,13 +88,13 @@ static int16_t get_simplex_val() {
     val += snoise_1D(frame << 3) >> 6;
 
     // Offset a bit
-    val -= 85 << N_DITHER_BITS;
+    val -= 60 << N_DITHER_BITS;
 
     if (val < 0)
         val = 0;
 
-    if (val > (120 << N_DITHER_BITS))
-        val = (120 << N_DITHER_BITS);
+    if (val > (90 << N_DITHER_BITS))
+        val = (90 << N_DITHER_BITS);
 
     frame++;
     return val;
